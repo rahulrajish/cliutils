@@ -8,5 +8,8 @@ fn main() {
         process::exit(1);
     });
 
-    cliutils::run(config);
+    cliutils::run(config).unwrap_or_else(|err|{
+        eprintln!("Problem while running command : {err}");
+        process::exit(1);
+    });
 }
