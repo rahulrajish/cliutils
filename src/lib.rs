@@ -2,7 +2,7 @@ use std::fs;
 use std::error::Error;
 use std::fmt;
 pub trait Config{
-    fn build(inputs: Vec<String>) -> Result<Box<Self>, &'static str>;
+    fn build(args: impl Iterator<Item = String>) -> Result<Box<Self>, &'static str>;
     fn run(&self) -> Result<(), Box<dyn Error>>;
 }
 #[derive(Debug)]
@@ -34,8 +34,9 @@ pub struct EchoConfig {
 
 impl Config for EchoConfig {
 
-    fn build(inputs: Vec<String>) -> Result<Box<Self>, &'static str> {
-        let input = match inputs.into_iter().next() {
+    fn build(args: impl Iterator<Item = String>) -> Result<Box<Self>, &'static str> {
+        let mut inputs = args;
+        let input = match inputs.next() {
             Some(input) => input,
             None => return Err("Didn't get input string"),
         };
@@ -56,8 +57,8 @@ pub struct CatConfig {
 
 impl Config for CatConfig {
 
-    fn build(inputs: Vec<String>) ->  Result<Box<Self>, &'static str>{
-        let mut inputs_iter = inputs.into_iter();
+    fn build(args: impl Iterator<Item = String>) ->  Result<Box<Self>, &'static str>{
+        let mut inputs_iter = args;
         let file_path_1 = match inputs_iter.next() {
             Some(input) => input,
             None => return Err("Didn't get first input string"),
@@ -98,13 +99,7 @@ pub fn run_config(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn 
 
     match config_type.as_str() {
         "echo" => {
-            let mut inputs = Vec::new();
-            match args.next() {
-                Some(arg) => inputs.push(arg),
-                None => return Err(Box::new(ConfigError::new( "Didn't get an input string"))),
-            }
-
-            let echo_config = EchoConfig::build(inputs);
+            let echo_config = EchoConfig::build(args);
 
             let echo_run = match echo_config {
                 Ok(echo) => *echo,
@@ -117,17 +112,7 @@ pub fn run_config(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn 
             }
         },
         "cat" => {
-            let mut inputs = Vec::new();
-            match args.next() {
-                Some(arg) => inputs.push(arg),
-                None => return Err(Box::new(ConfigError::new("Didn't get first input string"))),
-            }
-            match args.next() {
-                Some(arg) => inputs.push(arg),
-                None => return Err(Box::new(ConfigError::new("Didn't get second input string"))),
-            }
-
-            let cat_config = CatConfig::build(inputs);
+            let cat_config = CatConfig::build(args);
 
             let cat_run = match cat_config {
                 Ok(cat) => *cat,
