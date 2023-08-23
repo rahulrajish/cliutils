@@ -1,17 +1,35 @@
 use std::fs;
 use std::error::Error;
+use std::fmt;
 pub trait Config{
     fn build(inputs: Vec<String>) -> Result<Box<Self>, &'static str>;
     fn run(&self) -> Result<(), Box<dyn Error>>;
 }
+#[derive(Debug)]
+pub struct ConfigError{
+    details: String,
+}
+
+impl ConfigError {
+    fn new(msg: &str) -> ConfigError {
+        ConfigError { details: msg.to_string() }
+    }
+}
+
+impl fmt::Display for ConfigError{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for ConfigError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
 
 pub struct EchoConfig {
     pub input: String,
-}
-
-pub struct CatConfig {
-    pub file_path_1: String,
-    pub file_path_2: String,
 }
 
 impl Config for EchoConfig {
@@ -31,18 +49,23 @@ impl Config for EchoConfig {
     }
 }
 
+pub struct CatConfig {
+    pub file_path_1: String,
+    pub file_path_2: String,
+}
+
 impl Config for CatConfig {
 
     fn build(inputs: Vec<String>) ->  Result<Box<Self>, &'static str>{
         let mut inputs_iter = inputs.into_iter();
         let file_path_1 = match inputs_iter.next() {
             Some(input) => input,
-            None => return Err("Didn't get input string"),
+            None => return Err("Didn't get first input string"),
         };
 
         let file_path_2 = match inputs_iter.next() {
             Some(input) => input,
-            None => return Err("Didn't get input string"),
+            None => return Err("Didn't get second input string"),
         };
 
         Ok(Box::new(CatConfig{file_path_1, file_path_2}))
@@ -65,12 +88,12 @@ impl Config for CatConfig {
     }
 }
 
-pub fn run_config(mut args: impl Iterator<Item = String>) -> Result<(), &'static str> {
+pub fn run_config(mut args: impl Iterator<Item = String>) -> Result<(), Box<dyn Error>> {
     args.next();
 
     let config_type = match args.next() {
         Some(arg) => arg,
-        None => return Err("Didn't get an input string"),
+        None => return Err(Box::new(ConfigError::new( "Didn't get an input string"))),
     };
 
     match config_type.as_str() {
@@ -78,39 +101,45 @@ pub fn run_config(mut args: impl Iterator<Item = String>) -> Result<(), &'static
             let mut inputs = Vec::new();
             match args.next() {
                 Some(arg) => inputs.push(arg),
-                None => return Err("Didn't get an input string"),
+                None => return Err(Box::new(ConfigError::new( "Didn't get an input string"))),
             }
 
             let echo_config = EchoConfig::build(inputs);
 
             let echo_run = match echo_config {
                 Ok(echo) => *echo,
-                Err(e) => return Err(e), 
+                Err(e) => return Err(Box::new(ConfigError::new(e))), 
             };
 
-            echo_run.run().unwrap();
+            match echo_run.run() {
+                Ok(()) => (),
+                Err(e) => return Err(e),
+            }
         },
         "cat" => {
             let mut inputs = Vec::new();
             match args.next() {
                 Some(arg) => inputs.push(arg),
-                None => return Err("Didn't get an input string"),
+                None => return Err(Box::new(ConfigError::new("Didn't get first input string"))),
             }
             match args.next() {
                 Some(arg) => inputs.push(arg),
-                None => return Err("Didn't get an input string"),
+                None => return Err(Box::new(ConfigError::new("Didn't get second input string"))),
             }
 
             let cat_config = CatConfig::build(inputs);
 
             let cat_run = match cat_config {
                 Ok(cat) => *cat,
-                Err(e) => return Err(e),
+                Err(e) => return Err(Box::new(ConfigError::new(e))),
             };
 
-            cat_run.run().unwrap();
+            match cat_run.run() {
+                Ok(()) => (),
+                Err(e) => return Err(e),
+            }
         }
-        _ => return Err("No operation found."),
+        _ => return Err(Box::new(ConfigError::new("No operation found."))),
     };
 
     Ok(())
